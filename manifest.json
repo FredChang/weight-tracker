@@ -1,0 +1,22 @@
+{
+  "name": "體重管理 Weight Tracker",
+  "short_name": "體重管理",
+  "description": "記錄體重、計算BMI、查看歷史趨勢圖",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0a0e1a",
+  "theme_color": "#6366f1",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="description" content="體重管理 - 記錄體重、計算BMI、查看歷史趨勢圖。支援匯入匯出，離線使用。">
+  <meta name="theme-color" content="#6366f1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="體重管理">
+  <title>體重管理 Weight Tracker</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header class="app-header">
+      <h1>⚖️ 體重管理</h1>
+      <p class="subtitle">Weight Tracker · BMI Calculator</p>
+    </header>
+
+    <!-- ═══════ TAB: 首頁 Dashboard ═══════ -->
+    <div id="tab-home" class="tab-content active">
+      <!-- BMI Banner -->
+      <div class="bmi-banner" id="bmi-banner">
+        <div class="bmi-value" id="bmi-value">--</div>
+        <div class="bmi-label">BMI 指數</div>
+        <span class="bmi-status" id="bmi-status">請新增第一筆紀錄</span>
+      </div>
+
+      <!-- Quick Stats -->
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat-item">
+          <div class="stat-value" id="stat-weight">--</div>
+          <div class="stat-unit">kg</div>
+          <div class="stat-label">目前體重</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value" id="stat-height">--</div>
+          <div class="stat-unit">cm</div>
+          <div class="stat-label">身高</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value" id="stat-goal">--</div>
+          <div class="stat-unit">kg</div>
+          <div class="stat-label">目標體重</div>
+        </div>
+      </div>
+
+      <!-- Goal Progress -->
+      <div class="card" id="goal-card" style="display:none;">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+          目標進度
+        </div>
+        <div class="goal-progress"><div class="goal-progress-bar" id="goal-bar" style="width:0%"></div></div>
+        <div class="goal-text">
+          <span id="goal-start">起始: --</span>
+          <span id="goal-remain">距離目標: --</span>
+        </div>
+      </div>
+
+      <!-- Mini Chart -->
+      <div class="card">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          最近趨勢
+        </div>
+        <div class="chart-container">
+          <canvas id="mini-chart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ TAB: 新增紀錄 ═══════ -->
+    <div id="tab-add" class="tab-content">
+      <div class="card">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          新增體重紀錄
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="input-height">身高 (cm)</label>
+            <input type="number" id="input-height" class="form-input" placeholder="163" step="0.1" min="50" max="250">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="input-weight">體重 (kg)</label>
+            <input type="number" id="input-weight" class="form-input" placeholder="70.5" step="0.1" min="10" max="300">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="input-goal">目標體重 (kg)</label>
+            <input type="number" id="input-goal" class="form-input" placeholder="60" step="0.1" min="10" max="300">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="input-date">日期</label>
+            <input type="datetime-local" id="input-date" class="form-input">
+          </div>
+        </div>
+
+        <!-- Body Measurements (collapsible) -->
+        <details style="margin-bottom: 16px;">
+          <summary style="color: var(--text-accent); font-size: 0.85rem; font-weight: 600; cursor: pointer; padding: 8px 0;">
+            ▸ 進階測量 (體脂、肌肉、腰圍等)
+          </summary>
+          <div style="padding-top: 12px;">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label" for="input-fat">體脂率 (%)</label>
+                <input type="number" id="input-fat" class="form-input" placeholder="0" step="0.1" min="0" max="100">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="input-muscle">肌肉量 (%)</label>
+                <input type="number" id="input-muscle" class="form-input" placeholder="0" step="0.1" min="0" max="100">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label" for="input-water">含水量 (%)</label>
+                <input type="number" id="input-water" class="form-input" placeholder="0" step="0.1" min="0" max="100">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="input-waist">腰圍 (cm)</label>
+                <input type="number" id="input-waist" class="form-input" placeholder="0" step="0.1" min="0" max="300">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label" for="input-belly">腹圍 (cm)</label>
+                <input type="number" id="input-belly" class="form-input" placeholder="0" step="0.1" min="0" max="300">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="input-chest">胸圍 (cm)</label>
+                <input type="number" id="input-chest" class="form-input" placeholder="0" step="0.1" min="0" max="300">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label" for="input-hip">臀圍 (cm)</label>
+                <input type="number" id="input-hip" class="form-input" placeholder="0" step="0.1" min="0" max="300">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="input-desc">備註</label>
+                <input type="text" id="input-desc" class="form-input" placeholder="選填">
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <button class="btn btn-primary" id="btn-save" onclick="saveRecord()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          儲存紀錄
+        </button>
+      </div>
+    </div>
+
+    <!-- ═══════ TAB: 歷史紀錄 ═══════ -->
+    <div id="tab-history" class="tab-content">
+      <div class="card">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          歷史紀錄
+        </div>
+
+        <!-- Year/Month Filter -->
+        <div class="filter-row">
+          <select class="filter-select" id="filter-year" onchange="filterRecords()">
+            <option value="">全部年份</option>
+          </select>
+          <select class="filter-select" id="filter-month" onchange="filterRecords()">
+            <option value="">全部月份</option>
+            <option value="1">1月</option><option value="2">2月</option><option value="3">3月</option>
+            <option value="4">4月</option><option value="5">5月</option><option value="6">6月</option>
+            <option value="7">7月</option><option value="8">8月</option><option value="9">9月</option>
+            <option value="10">10月</option><option value="11">11月</option><option value="12">12月</option>
+          </select>
+        </div>
+
+        <ul class="record-list" id="record-list"></ul>
+
+        <!-- Pagination -->
+        <div class="pagination" id="pagination"></div>
+
+        <div class="empty-state" id="empty-history" style="display:none;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <p>尚無紀錄<br>請先新增體重資料</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ TAB: 圖表 ═══════ -->
+    <div id="tab-chart" class="tab-content">
+      <div class="card">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          體重趨勢圖
+        </div>
+        <div class="chart-controls">
+          <button class="chart-range-btn" onclick="setChartRange('1w')">1週</button>
+          <button class="chart-range-btn" onclick="setChartRange('1m')">1個月</button>
+          <button class="chart-range-btn" onclick="setChartRange('3m')">3個月</button>
+          <button class="chart-range-btn" onclick="setChartRange('6m')">6個月</button>
+          <button class="chart-range-btn active" onclick="setChartRange('1y')">1年</button>
+          <button class="chart-range-btn" onclick="setChartRange('all')">全部</button>
+        </div>
+        <div class="chart-container" style="height: 300px;">
+          <canvas id="main-chart"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          BMI 趨勢圖
+        </div>
+        <div class="chart-container" style="height: 250px;">
+          <canvas id="bmi-chart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ TAB: 設定 / 匯入匯出 ═══════ -->
+    <div id="tab-settings" class="tab-content">
+      <!-- Profile -->
+      <div class="card">
+        <div class="profile-avatar">🏋️</div>
+        <div class="card-title" style="justify-content: center;">
+          個人設定
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="setting-name">姓名</label>
+          <input type="text" id="setting-name" class="form-input" placeholder="您的名字" onchange="saveSettings()">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="setting-gender">性別</label>
+            <select id="setting-gender" class="form-input filter-select" onchange="saveSettings()">
+              <option value="0">未設定</option>
+              <option value="1">男</option>
+              <option value="2">女</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="setting-birthday">生日</label>
+            <input type="date" id="setting-birthday" class="form-input" onchange="saveSettings()">
+          </div>
+        </div>
+      </div>
+
+      <!-- Import / Export -->
+      <div class="card">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          資料管理
+        </div>
+        <div class="io-btn-grid">
+          <button class="io-btn" onclick="exportJSON()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            匯出 JSON
+          </button>
+          <button class="io-btn" onclick="document.getElementById('import-file').click()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            匯入 JSON
+          </button>
+          <button class="io-btn" onclick="exportCSV()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            匯出 CSV
+          </button>
+          <button class="io-btn btn-danger" onclick="confirmClearData()" style="border-color: rgba(239,68,68,0.2);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--accent-danger);"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+            清除資料
+          </button>
+        </div>
+        <input type="file" id="import-file" accept=".json" style="display:none" onchange="importJSON(event)">
+        <p class="io-info">支援匯入原始 aktiWir / 123.json 格式檔案</p>
+      </div>
+
+      <!-- Data Summary -->
+      <div class="card">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          資料統計
+        </div>
+        <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr);">
+          <div class="stat-item">
+            <div class="stat-value" id="total-records">0</div>
+            <div class="stat-label">總紀錄數</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value" id="record-days">0</div>
+            <div class="stat-label">記錄天數</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value" id="min-weight">--</div>
+            <div class="stat-label">最低體重</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value" id="max-weight">--</div>
+            <div class="stat-label">最高體重</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Navigation -->
+  <nav class="bottom-nav">
+    <div class="bottom-nav-inner">
+      <button class="bottom-nav-btn active" onclick="switchTab('home')" id="nav-home">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        首頁
+      </button>
+      <button class="bottom-nav-btn" onclick="switchTab('add')" id="nav-add">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        新增
+      </button>
+      <button class="bottom-nav-btn" onclick="switchTab('history')" id="nav-history">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        紀錄
+      </button>
+      <button class="bottom-nav-btn" onclick="switchTab('chart')" id="nav-chart">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        圖表
+      </button>
+      <button class="bottom-nav-btn" onclick="switchTab('settings')" id="nav-settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        設定
+      </button>
+    </div>
+  </nav>
+
+  <!-- Modal: Edit Record -->
+  <div class="modal-overlay" id="edit-modal">
+    <div class="modal">
+      <h3>✏️ 編輯紀錄</h3>
+      <div class="edit-field">
+        <label>日期時間</label>
+        <input type="datetime-local" id="edit-date">
+      </div>
+      <div class="edit-field">
+        <label>體重 (kg)</label>
+        <input type="number" id="edit-weight" step="0.1">
+      </div>
+      <div class="edit-field">
+        <label>身高 (cm)</label>
+        <input type="number" id="edit-height" step="0.1">
+      </div>
+      <div class="edit-field">
+        <label>目標體重 (kg)</label>
+        <input type="number" id="edit-goal" step="0.1">
+      </div>
+      <div class="edit-field">
+        <label>備註</label>
+        <input type="text" id="edit-desc">
+      </div>
+      <input type="hidden" id="edit-id">
+      <div class="btn-group">
+        <button class="btn btn-secondary" onclick="closeEditModal()">取消</button>
+        <button class="btn btn-primary" onclick="updateRecord()">儲存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Confirm Delete All -->
+  <div class="modal-overlay" id="clear-modal">
+    <div class="modal">
+      <h3>⚠️ 確認清除</h3>
+      <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 16px;">
+        這將刪除所有體重紀錄，此操作無法復原。<br>建議先匯出資料備份。
+      </p>
+      <div class="btn-group">
+        <button class="btn btn-secondary" onclick="closeClearModal()">取消</button>
+        <button class="btn btn-danger" onclick="clearAllData()" style="flex:1;">確認清除</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
