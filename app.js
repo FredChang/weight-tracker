@@ -11,7 +11,8 @@ const RECORDS_PER_PAGE = 20;
 
 // ── State ──
 let records = [];
-let settings = { name: '', gender: 0, birthday: '', height: 0, goalWeight: 0 };
+let settings = { name: '', gender: 0, birthday: '', height: 0, goalWeight: 0, theme: 'light' };
+const THEMES = ['light', 'dark', 'warm'];
 let currentPage = 1;
 let chartInstances = { mini: null, main: null, bmi: null };
 let currentChartRange = '1y';
@@ -27,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadData();
   loadSettings();
   migrateLegacySettings();
+  applyTheme(settings.theme || 'light');
   setDefaultDate();
   setupWeightPicker();
   resetWeightPicker();
@@ -73,6 +75,53 @@ function loadSettings() {
   if (bdayEl) bdayEl.value = settings.birthday || '';
   if (heightEl) heightEl.value = settings.height || '';
   if (goalEl) goalEl.value = settings.goalWeight || '';
+  updateThemePickerUI(settings.theme || 'light');
+}
+
+function applyTheme(theme) {
+  const t = THEMES.includes(theme) ? theme : 'light';
+  settings.theme = t;
+  document.documentElement.setAttribute('data-theme', t);
+
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) {
+    const color = getComputedStyle(document.documentElement).getPropertyValue('--meta-theme-color').trim();
+    meta.setAttribute('content', color || '#6366f1');
+  }
+
+  updateThemePickerUI(t);
+
+  if (records.length > 0) {
+    renderMiniChart();
+    if (document.getElementById('tab-chart')?.classList.contains('active')) {
+      renderMainChart();
+      renderBmiChart();
+    }
+  }
+}
+
+function setTheme(theme) {
+  applyTheme(theme);
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  showToast('背景主題已切換', 'success');
+}
+
+function updateThemePickerUI(theme) {
+  document.querySelectorAll('.theme-option').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.theme === theme);
+  });
+}
+
+function getChartColors() {
+  const s = getComputedStyle(document.documentElement);
+  return {
+    tick: s.getPropertyValue('--text-muted').trim() || '#64748b',
+    grid: s.getPropertyValue('--chart-grid').trim() || 'rgba(148, 163, 184, 0.06)',
+    tooltipBg: s.getPropertyValue('--chart-tooltip-bg').trim() || 'rgba(255,255,255,0.98)',
+    tooltipTitle: s.getPropertyValue('--chart-tooltip-title').trim() || '#0f172a',
+    tooltipBody: s.getPropertyValue('--chart-tooltip-body').trim() || '#64748b',
+    accent: s.getPropertyValue('--accent-primary').trim() || '#6366f1'
+  };
 }
 
 function saveSettings() {
@@ -574,18 +623,20 @@ function renderMiniChart() {
   const labels = recent.map(r => new Date(r.created));
   const weights = recent.map(r => r.weight);
   const goalWeight = getTargetWeight();
+  const c = getChartColors();
+  const accentSoft = getComputedStyle(document.documentElement).getPropertyValue('--accent-primary-soft').trim();
 
   const datasets = [{
     label: '體重',
     data: weights.map((w, i) => ({ x: labels[i], y: w })),
-    borderColor: '#6366f1',
-    backgroundColor: 'rgba(99, 102, 241, 0.08)',
+    borderColor: c.accent,
+    backgroundColor: accentSoft || 'rgba(99, 102, 241, 0.08)',
     borderWidth: 2,
     fill: true,
     tension: 0.3,
     pointRadius: recent.length > 20 ? 0 : 3,
     pointHoverRadius: 5,
-    pointBackgroundColor: '#6366f1'
+    pointBackgroundColor: c.accent
   }];
 
   if (goalWeight > 0) {
@@ -628,19 +679,21 @@ function renderMainChart() {
   const labels = filtered.map(r => new Date(r.created));
   const weights = filtered.map(r => r.weight);
   const goalWeight = getTargetWeight();
+  const c = getChartColors();
+  const accentSoft = getComputedStyle(document.documentElement).getPropertyValue('--accent-primary-soft').trim();
 
   const datasets = [{
     label: '體重 (kg)',
     data: weights.map((w, i) => ({ x: labels[i], y: w })),
-    borderColor: '#6366f1',
-    backgroundColor: createGradient(ctx, 'rgba(99, 102, 241, 0.2)', 'rgba(99, 102, 241, 0.01)'),
+    borderColor: c.accent,
+    backgroundColor: createGradient(ctx, accentSoft || 'rgba(99, 102, 241, 0.2)', 'transparent'),
     borderWidth: 2.5,
     fill: true,
     tension: 0.3,
     pointRadius: filtered.length > 60 ? 0 : 3,
     pointHoverRadius: 6,
-    pointBackgroundColor: '#6366f1',
-    pointBorderColor: '#fff',
+    pointBackgroundColor: c.accent,
+    pointBorderColor: getComputedStyle(document.documentElement).getPropertyValue('--bg-card').trim() || '#fff',
     pointBorderWidth: 1
   }];
 
@@ -683,20 +736,22 @@ function renderBmiChart() {
 
   const labels = filtered.map(r => new Date(r.created));
   const bmis = filtered.map(r => calcBMI(r.height, r.weight));
+  const c = getChartColors();
+  const secondarySoft = getComputedStyle(document.documentElement).getPropertyValue('--accent-secondary-soft').trim();
+  const secondary = getComputedStyle(document.documentElement).getPropertyValue('--accent-secondary').trim() || '#06b6d4';
 
-  // BMI zone backgrounds
   const datasets = [
     {
       label: 'BMI',
       data: bmis.map((b, i) => ({ x: labels[i], y: parseFloat(b.toFixed(1)) })),
-      borderColor: '#06b6d4',
-      backgroundColor: createGradient(ctx, 'rgba(6, 182, 212, 0.15)', 'rgba(6, 182, 212, 0.01)'),
+      borderColor: secondary,
+      backgroundColor: createGradient(ctx, secondarySoft || 'rgba(6, 182, 212, 0.15)', 'transparent'),
       borderWidth: 2.5,
       fill: true,
       tension: 0.3,
       pointRadius: filtered.length > 60 ? 0 : 3,
       pointHoverRadius: 6,
-      pointBackgroundColor: '#06b6d4'
+      pointBackgroundColor: secondary
     }
   ];
 
@@ -757,6 +812,7 @@ function createGradient(ctx, colorTop, colorBottom) {
 }
 
 function getMiniChartOptions() {
+  const c = getChartColors();
   return {
     responsive: true,
     maintainAspectRatio: false,
@@ -764,10 +820,10 @@ function getMiniChartOptions() {
     plugins: {
       legend: { display: false },
       tooltip: {
-        backgroundColor: 'rgba(17, 24, 39, 0.95)',
-        titleColor: '#f1f5f9',
-        bodyColor: '#94a3b8',
-        borderColor: 'rgba(99, 102, 241, 0.3)',
+        backgroundColor: c.tooltipBg,
+        titleColor: c.tooltipTitle,
+        bodyColor: c.tooltipBody,
+        borderColor: c.accent + '4d',
         borderWidth: 1,
         padding: 10,
         cornerRadius: 8,
@@ -786,12 +842,12 @@ function getMiniChartOptions() {
         type: 'time',
         time: { unit: 'day', displayFormats: { day: 'MM/dd' } },
         grid: { display: false },
-        ticks: { color: '#64748b', font: { size: 10 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 6 },
+        ticks: { color: c.tick, font: { size: 10 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 6 },
         border: { display: false }
       },
       y: {
-        grid: { color: 'rgba(148, 163, 184, 0.06)' },
-        ticks: { color: '#64748b', font: { size: 10 }, padding: 8 },
+        grid: { color: c.grid },
+        ticks: { color: c.tick, font: { size: 10 }, padding: 8 },
         border: { display: false }
       }
     }
@@ -799,6 +855,7 @@ function getMiniChartOptions() {
 }
 
 function getMainChartOptions(ylabel) {
+  const c = getChartColors();
   return {
     responsive: true,
     maintainAspectRatio: false,
@@ -806,13 +863,13 @@ function getMainChartOptions(ylabel) {
     plugins: {
       legend: {
         display: true,
-        labels: { color: '#94a3b8', font: { size: 11, family: 'Inter' }, boxWidth: 12, padding: 16 }
+        labels: { color: c.tick, font: { size: 11, family: 'Inter' }, boxWidth: 12, padding: 16 }
       },
       tooltip: {
-        backgroundColor: 'rgba(17, 24, 39, 0.95)',
-        titleColor: '#f1f5f9',
-        bodyColor: '#94a3b8',
-        borderColor: 'rgba(99, 102, 241, 0.3)',
+        backgroundColor: c.tooltipBg,
+        titleColor: c.tooltipTitle,
+        bodyColor: c.tooltipBody,
+        borderColor: c.accent + '4d',
         borderWidth: 1,
         padding: 12,
         cornerRadius: 8,
@@ -828,14 +885,14 @@ function getMainChartOptions(ylabel) {
       x: {
         type: 'time',
         time: { unit: 'month', displayFormats: { month: 'yyyy/MM', day: 'MM/dd' } },
-        grid: { color: 'rgba(148, 163, 184, 0.05)' },
-        ticks: { color: '#64748b', font: { size: 10 }, maxRotation: 45, autoSkip: true, maxTicksLimit: 8 },
+        grid: { color: c.grid },
+        ticks: { color: c.tick, font: { size: 10 }, maxRotation: 45, autoSkip: true, maxTicksLimit: 8 },
         border: { display: false }
       },
       y: {
-        title: { display: true, text: ylabel, color: '#64748b', font: { size: 11 } },
-        grid: { color: 'rgba(148, 163, 184, 0.06)' },
-        ticks: { color: '#64748b', font: { size: 10 }, padding: 8 },
+        title: { display: true, text: ylabel, color: c.tick, font: { size: 11 } },
+        grid: { color: c.grid },
+        ticks: { color: c.tick, font: { size: 10 }, padding: 8 },
         border: { display: false }
       }
     }

@@ -14,6 +14,16 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <script>
+    (function () {
+      try {
+        var s = JSON.parse(localStorage.getItem('weight_tracker_settings') || '{}');
+        document.documentElement.setAttribute('data-theme', s.theme || 'light');
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
 </head>
 <body>
   <div id="app">
@@ -274,6 +284,28 @@
           </div>
         </div>
         <p class="settings-hint">身高與目標體重只需設定一次，記錄時僅需調整體重。</p>
+      </div>
+
+      <!-- Appearance -->
+      <div class="card">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          背景主題
+        </div>
+        <div class="theme-picker" id="theme-picker">
+          <button type="button" class="theme-option" data-theme="light" onclick="setTheme('light')">
+            <span class="theme-swatch theme-swatch-light"></span>
+            <span class="theme-name">淺色</span>
+          </button>
+          <button type="button" class="theme-option" data-theme="dark" onclick="setTheme('dark')">
+            <span class="theme-swatch theme-swatch-dark"></span>
+            <span class="theme-name">深色</span>
+          </button>
+          <button type="button" class="theme-option" data-theme="warm" onclick="setTheme('warm')">
+            <span class="theme-swatch theme-swatch-warm"></span>
+            <span class="theme-name">暖色</span>
+          </button>
+        </div>
       </div>
 
       <!-- Import / Export -->
