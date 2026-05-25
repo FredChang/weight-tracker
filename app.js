@@ -11,16 +11,25 @@ const RECORDS_PER_PAGE = 20;
 
 // ── State ──
 let records = [];
-let settings = { name: '', gender: 0, birthday: '' };
+let settings = { name: '', gender: 0, birthday: '', height: 0, goalWeight: 0 };
 let currentPage = 1;
 let chartInstances = { mini: null, main: null, bmi: null };
 let currentChartRange = '1y';
+let pickerWeight = 60;
+const WEIGHT_MIN = 10;
+const WEIGHT_MAX = 300;
+const WEIGHT_STEP = 0.1;
+const WEIGHT_DEFAULT = 60;
+const SWIPE_PX_PER_STEP = 12;
 
 // ── Init ──
 document.addEventListener('DOMContentLoaded', () => {
   loadData();
   loadSettings();
+  migrateLegacySettings();
   setDefaultDate();
+  setupWeightPicker();
+  resetWeightPicker();
   updateDashboard();
   renderHistory();
   populateYearFilter();
@@ -52,23 +61,70 @@ function saveData() {
 function loadSettings() {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    if (raw) settings = JSON.parse(raw);
+    if (raw) settings = { ...settings, ...JSON.parse(raw) };
   } catch { /* use defaults */ }
-  // Populate settings UI
   const nameEl = document.getElementById('setting-name');
   const genderEl = document.getElementById('setting-gender');
   const bdayEl = document.getElementById('setting-birthday');
+  const heightEl = document.getElementById('setting-height');
+  const goalEl = document.getElementById('setting-goal');
   if (nameEl) nameEl.value = settings.name || '';
   if (genderEl) genderEl.value = settings.gender || 0;
   if (bdayEl) bdayEl.value = settings.birthday || '';
+  if (heightEl) heightEl.value = settings.height || '';
+  if (goalEl) goalEl.value = settings.goalWeight || '';
 }
 
 function saveSettings() {
   settings.name = document.getElementById('setting-name').value;
   settings.gender = parseInt(document.getElementById('setting-gender').value) || 0;
   settings.birthday = document.getElementById('setting-birthday').value || '';
+  settings.height = parseFloat(document.getElementById('setting-height').value) || 0;
+  settings.goalWeight = parseFloat(document.getElementById('setting-goal').value) || 0;
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  updateDashboard();
   showToast('設定已儲存', 'success');
+}
+
+function migrateLegacySettings() {
+  let changed = false;
+  const lastH = parseFloat(localStorage.getItem('last_height'));
+  const lastG = parseFloat(localStorage.getItem('last_goal'));
+  if (!settings.height && lastH) {
+    settings.height = lastH;
+    changed = true;
+  }
+  if (!settings.goalWeight && lastG) {
+    settings.goalWeight = lastG;
+    changed = true;
+  }
+  if (!settings.height && records.length > 0) {
+    const sorted = [...records].sort((a, b) => new Date(b.created) - new Date(a.created));
+    settings.height = sorted[0].height;
+    changed = true;
+  }
+  if (!settings.goalWeight && records.length > 0) {
+    const sorted = [...records].sort((a, b) => new Date(b.created) - new Date(a.created));
+    if (sorted[0].desired_weight > 0) settings.goalWeight = sorted[0].desired_weight;
+    changed = true;
+  }
+  if (changed) {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    loadSettings();
+  }
+}
+
+function getProfileHeight() {
+  if (settings.height > 0) return settings.height;
+  if (records.length > 0) {
+    const sorted = [...records].sort((a, b) => new Date(b.created) - new Date(a.created));
+    return sorted[0].height;
+  }
+  return 0;
+}
+
+function getTargetWeight() {
+  return settings.goalWeight > 0 ? settings.goalWeight : 0;
 }
 
 // ══════════════════════════════════
@@ -85,7 +141,10 @@ function switchTab(tabName) {
   document.getElementById(`nav-${tabName}`).classList.add('active');
 
   // Refresh views when switching
-  if (tabName === 'home') updateDashboard();
+  if (tabName === 'home') {
+    updateDashboard();
+    resetWeightPicker();
+  }
   if (tabName === 'history') renderHistory();
   if (tabName === 'chart') {
     setTimeout(() => renderMainChart(), 100);
@@ -94,26 +153,127 @@ function switchTab(tabName) {
 }
 
 // ══════════════════════════════════
+//  WEIGHT PICKER (swipe / wheel)
+// ══════════════════════════════════
+
+function clampWeight(w) {
+  return Math.min(WEIGHT_MAX, Math.max(WEIGHT_MIN, Math.round(w * 10) / 10));
+}
+
+function getBaseWeight() {
+  if (records.length > 0) {
+    const sorted = [...records].sort((a, b) => new Date(b.created) - new Date(a.created));
+    return sorted[0].weight;
+  }
+  return WEIGHT_DEFAULT;
+}
+
+function updateWeightDisplay() {
+  const el = document.getElementById('weight-display');
+  if (el) el.textContent = pickerWeight.toFixed(1);
+
+  const deltaEl = document.getElementById('weight-delta');
+  if (!deltaEl) return;
+  const base = getBaseWeight();
+  if (records.length === 0) {
+    deltaEl.textContent = '第一筆紀錄';
+    deltaEl.className = 'weight-picker-delta';
+    return;
+  }
+  const diff = pickerWeight - base;
+  if (Math.abs(diff) < 0.05) {
+    deltaEl.textContent = '與上次相同';
+    deltaEl.className = 'weight-picker-delta unchanged';
+  } else {
+    const sign = diff > 0 ? '+' : '';
+    deltaEl.textContent = `較上次 ${sign}${diff.toFixed(1)} kg`;
+    deltaEl.className = `weight-picker-delta ${diff > 0 ? 'up' : 'down'}`;
+  }
+}
+
+function setPickerWeight(w) {
+  pickerWeight = clampWeight(w);
+  updateWeightDisplay();
+}
+
+function adjustPickerWeight(steps) {
+  setPickerWeight(pickerWeight + steps * WEIGHT_STEP);
+}
+
+function resetWeightPicker() {
+  setPickerWeight(getBaseWeight());
+}
+
+function setupWeightPicker() {
+  const picker = document.getElementById('weight-picker');
+  if (!picker) return;
+
+  let touchStartY = 0;
+  let dragBaseWeight = pickerWeight;
+
+  picker.addEventListener('touchstart', (e) => {
+    touchStartY = e.touches[0].clientY;
+    dragBaseWeight = pickerWeight;
+  }, { passive: true });
+
+  picker.addEventListener('touchmove', (e) => {
+    const dy = e.touches[0].clientY - touchStartY;
+    const steps = Math.trunc(-dy / SWIPE_PX_PER_STEP);
+    setPickerWeight(dragBaseWeight + steps * WEIGHT_STEP);
+  }, { passive: true });
+
+  picker.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    adjustPickerWeight(e.deltaY > 0 ? -1 : 1);
+  }, { passive: false });
+
+  // Desktop: drag with mouse
+  let mouseDown = false;
+  let mouseStartY = 0;
+
+  picker.addEventListener('mousedown', (e) => {
+    mouseDown = true;
+    mouseStartY = e.clientY;
+    dragBaseWeight = pickerWeight;
+    picker.classList.add('dragging');
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!mouseDown) return;
+    const dy = e.clientY - mouseStartY;
+    const steps = Math.trunc(-dy / SWIPE_PX_PER_STEP);
+    setPickerWeight(dragBaseWeight + steps * WEIGHT_STEP);
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (mouseDown) picker.classList.remove('dragging');
+    mouseDown = false;
+  });
+}
+
+// ══════════════════════════════════
 //  SAVE NEW RECORD
 // ══════════════════════════════════
 
 function saveRecord() {
-  const height = parseFloat(document.getElementById('input-height').value);
-  const weight = parseFloat(document.getElementById('input-weight').value);
-  const goal = parseFloat(document.getElementById('input-goal').value) || 0;
+  const height = getProfileHeight();
+  const weight = pickerWeight;
+  const goal = getTargetWeight();
   const dateStr = document.getElementById('input-date').value;
 
-  if (!height || !weight) {
-    showToast('請輸入身高和體重', 'error');
+  if (!height) {
+    showToast('請先在設定中填寫身高', 'error');
+    switchTab('settings');
     return;
   }
 
   if (height < 50 || height > 250) {
     showToast('身高範圍：50~250 cm', 'error');
+    switchTab('settings');
     return;
   }
 
-  if (weight < 10 || weight > 300) {
+  if (weight < WEIGHT_MIN || weight > WEIGHT_MAX) {
     showToast('體重範圍：10~300 kg', 'error');
     return;
   }
@@ -147,19 +307,14 @@ function saveRecord() {
   records.sort((a, b) => new Date(a.created) - new Date(b.created));
   saveData();
 
-  // Remember height & goal for convenience
-  localStorage.setItem('last_height', height);
-  localStorage.setItem('last_goal', goal || '');
-
   showToast(`已儲存！BMI: ${calcBMI(height, weight).toFixed(1)}`, 'success');
 
-  // Clear weight input only, keep height & goal
-  document.getElementById('input-weight').value = '';
   document.getElementById('input-desc').value = '';
   ['fat', 'muscle', 'water', 'waist', 'belly', 'chest', 'hip'].forEach(f => {
     document.getElementById(`input-${f}`).value = '';
   });
   setDefaultDate();
+  resetWeightPicker();
 
   updateDashboard();
   updateDataStats();
@@ -186,7 +341,8 @@ function updateDashboard() {
     return;
   }
 
-  const bmi = calcBMI(latest.height, latest.weight);
+  const displayHeight = getProfileHeight() || latest.height;
+  const bmi = calcBMI(displayHeight, latest.weight);
   const bmiInfo = getBMIStatus(bmi);
 
   document.getElementById('bmi-value').textContent = bmi.toFixed(1);
@@ -194,15 +350,17 @@ function updateDashboard() {
   document.getElementById('bmi-status').textContent = bmiInfo.label;
   document.getElementById('bmi-status').className = `bmi-status ${bmiInfo.cls}`;
 
+  const profileHeight = getProfileHeight() || latest.height;
+  const goalW = getTargetWeight();
+
   document.getElementById('stat-weight').textContent = latest.weight.toFixed(1);
-  document.getElementById('stat-height').textContent = latest.height.toFixed(0);
-  document.getElementById('stat-goal').textContent = latest.desired_weight > 0 ? latest.desired_weight.toFixed(1) : '--';
+  document.getElementById('stat-height').textContent = profileHeight > 0 ? profileHeight.toFixed(0) : latest.height.toFixed(0);
+  document.getElementById('stat-goal').textContent = goalW > 0 ? goalW.toFixed(1) : '--';
 
   // Goal progress
-  if (latest.desired_weight > 0 && records.length >= 2) {
+  if (goalW > 0 && records.length >= 2) {
     const first = records[0];
     const startW = first.weight;
-    const goalW = latest.desired_weight;
     const currentW = latest.weight;
     const totalDiff = Math.abs(startW - goalW);
     const achieved = Math.abs(startW - currentW);
@@ -214,16 +372,6 @@ function updateDashboard() {
     document.getElementById('goal-remain').textContent = `距離目標: ${Math.abs(currentW - goalW).toFixed(1)} kg`;
   } else {
     document.getElementById('goal-card').style.display = 'none';
-  }
-
-  // Pre-fill add form with remembered values
-  const lastH = localStorage.getItem('last_height');
-  const lastG = localStorage.getItem('last_goal');
-  if (lastH && !document.getElementById('input-height').value) {
-    document.getElementById('input-height').value = lastH;
-  }
-  if (lastG && !document.getElementById('input-goal').value) {
-    document.getElementById('input-goal').value = lastG;
   }
 
   renderMiniChart();
@@ -363,7 +511,6 @@ function openEditModal(id) {
   document.getElementById('edit-id').value = id;
   document.getElementById('edit-weight').value = rec.weight;
   document.getElementById('edit-height').value = rec.height;
-  document.getElementById('edit-goal').value = rec.desired_weight || '';
   document.getElementById('edit-desc').value = rec.description || '';
 
   // Format datetime for input
@@ -384,7 +531,7 @@ function updateRecord() {
 
   rec.weight = parseFloat(document.getElementById('edit-weight').value) || rec.weight;
   rec.height = parseFloat(document.getElementById('edit-height').value) || rec.height;
-  rec.desired_weight = parseFloat(document.getElementById('edit-goal').value) || 0;
+  rec.desired_weight = getTargetWeight();
   rec.description = document.getElementById('edit-desc').value || '';
 
   const dateVal = document.getElementById('edit-date').value;
@@ -430,7 +577,7 @@ function renderMiniChart() {
 
   const labels = recent.map(r => new Date(r.created));
   const weights = recent.map(r => r.weight);
-  const goalWeight = recent[recent.length - 1].desired_weight;
+  const goalWeight = getTargetWeight();
 
   const datasets = [{
     label: '體重',
@@ -484,7 +631,7 @@ function renderMainChart() {
 
   const labels = filtered.map(r => new Date(r.created));
   const weights = filtered.map(r => r.weight);
-  const goalWeight = filtered[filtered.length - 1].desired_weight;
+  const goalWeight = getTargetWeight();
 
   const datasets = [{
     label: '體重 (kg)',

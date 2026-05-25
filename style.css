@@ -946,3 +946,118 @@ body::before {
 .edit-field input:focus {
   border-color: var(--accent-primary);
 }
+
+/* ── Quick Add on Home ── */
+.card-add {
+  border-color: rgba(99, 102, 241, 0.2);
+  background: linear-gradient(145deg, rgba(99, 102, 241, 0.06), var(--bg-card));
+}
+
+.weight-picker {
+  text-align: center;
+  padding: 20px 16px 24px;
+  margin-bottom: 16px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-input);
+  border: 1px solid var(--border-light);
+  cursor: ns-resize;
+  user-select: none;
+  touch-action: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.weight-picker::before,
+.weight-picker::after {
+  content: '';
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  height: 28px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.weight-picker::before {
+  top: 0;
+  background: linear-gradient(to bottom, var(--bg-input), transparent);
+}
+
+.weight-picker::after {
+  bottom: 0;
+  background: linear-gradient(to top, var(--bg-input), transparent);
+}
+
+.weight-picker.dragging {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--accent-primary-soft);
+}
+
+.weight-picker-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  letter-spacing: 0.03em;
+}
+
+.weight-picker-value {
+  font-size: 3.2rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  background: var(--gradient-hero);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  transition: transform 0.1s ease;
+}
+
+.weight-picker.dragging .weight-picker-value {
+  transform: scale(1.03);
+}
+
+.weight-picker-unit {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+  font-weight: 600;
+}
+
+.weight-picker-delta {
+  margin-top: 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.weight-picker-delta.up {
+  color: var(--accent-danger);
+}
+
+.weight-picker-delta.down {
+  color: var(--accent-success);
+}
+
+.weight-picker-delta.unchanged {
+  color: var(--text-muted);
+}
+
+.add-advanced summary {
+  color: var(--text-accent);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px 0;
+  list-style: none;
+}
+
+.add-advanced-body {
+  padding-top: 12px;
+}
+
+.settings-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+  line-height: 1.5;
+}
