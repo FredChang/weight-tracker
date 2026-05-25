@@ -225,8 +225,8 @@ body::before {
   background: var(--gradient-card);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-xl);
-  padding: 24px;
-  margin-bottom: 16px;
+  padding: 20px 16px;
+  margin-bottom: 12px;
   text-align: center;
   position: relative;
   overflow: hidden;
@@ -242,18 +242,45 @@ body::before {
   background: var(--gradient-hero);
 }
 
-.bmi-value {
-  font-size: 3.5rem;
+.bmi-hero-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  margin-bottom: 14px;
+}
+
+.bmi-hero-item {
+  flex: 1;
+  text-align: center;
+  min-width: 0;
+}
+
+.bmi-hero-divider {
+  width: 1px;
+  height: 52px;
+  background: var(--border-light);
+  flex-shrink: 0;
+  margin: 0 8px;
+}
+
+.bmi-hero-value {
+  font-size: 2.6rem;
   font-weight: 800;
   line-height: 1;
-  margin-bottom: 4px;
   letter-spacing: -0.03em;
 }
 
-.bmi-label {
-  font-size: 0.85rem;
+.bmi-hero-label {
+  font-size: 0.78rem;
   color: var(--text-muted);
-  margin-bottom: 12px;
+  margin-top: 6px;
+  letter-spacing: 0.02em;
+}
+
+.bmi-hero-unit {
+  font-size: 0.7rem;
+  font-weight: 500;
 }
 
 .bmi-status {

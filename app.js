@@ -330,12 +330,12 @@ function updateDashboard() {
   const latest = sorted[0];
 
   if (!latest) {
+    document.getElementById('banner-weight').textContent = '--';
+    document.getElementById('banner-weight').style.color = '';
     document.getElementById('bmi-value').textContent = '--';
+    document.getElementById('bmi-value').style.color = '';
     document.getElementById('bmi-status').textContent = '請新增第一筆紀錄';
     document.getElementById('bmi-status').className = 'bmi-status';
-    document.getElementById('stat-weight').textContent = '--';
-    document.getElementById('stat-height').textContent = '--';
-    document.getElementById('stat-goal').textContent = '--';
     document.getElementById('goal-card').style.display = 'none';
     renderMiniChart();
     return;
@@ -344,18 +344,14 @@ function updateDashboard() {
   const displayHeight = getProfileHeight() || latest.height;
   const bmi = calcBMI(displayHeight, latest.weight);
   const bmiInfo = getBMIStatus(bmi);
+  const goalW = getTargetWeight();
 
+  document.getElementById('banner-weight').textContent = latest.weight.toFixed(1);
+  document.getElementById('banner-weight').style.color = 'var(--text-primary)';
   document.getElementById('bmi-value').textContent = bmi.toFixed(1);
   document.getElementById('bmi-value').style.color = bmiInfo.color;
   document.getElementById('bmi-status').textContent = bmiInfo.label;
   document.getElementById('bmi-status').className = `bmi-status ${bmiInfo.cls}`;
-
-  const profileHeight = getProfileHeight() || latest.height;
-  const goalW = getTargetWeight();
-
-  document.getElementById('stat-weight').textContent = latest.weight.toFixed(1);
-  document.getElementById('stat-height').textContent = profileHeight > 0 ? profileHeight.toFixed(0) : latest.height.toFixed(0);
-  document.getElementById('stat-goal').textContent = goalW > 0 ? goalW.toFixed(1) : '--';
 
   // Goal progress
   if (goalW > 0 && records.length >= 2) {

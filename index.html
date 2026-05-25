@@ -25,30 +25,20 @@
 
     <!-- ═══════ TAB: 首頁 Dashboard ═══════ -->
     <div id="tab-home" class="tab-content active">
-      <!-- BMI Banner -->
+      <!-- BMI + Weight Banner -->
       <div class="bmi-banner" id="bmi-banner">
-        <div class="bmi-value" id="bmi-value">--</div>
-        <div class="bmi-label">BMI 指數</div>
+        <div class="bmi-hero-row">
+          <div class="bmi-hero-item">
+            <div class="bmi-hero-value" id="banner-weight">--</div>
+            <div class="bmi-hero-label">目前體重 <span class="bmi-hero-unit">kg</span></div>
+          </div>
+          <div class="bmi-hero-divider"></div>
+          <div class="bmi-hero-item">
+            <div class="bmi-hero-value" id="bmi-value">--</div>
+            <div class="bmi-hero-label">BMI 指數</div>
+          </div>
+        </div>
         <span class="bmi-status" id="bmi-status">請新增第一筆紀錄</span>
-      </div>
-
-      <!-- Quick Stats -->
-      <div class="stats-grid" id="stats-grid">
-        <div class="stat-item">
-          <div class="stat-value" id="stat-weight">--</div>
-          <div class="stat-unit">kg</div>
-          <div class="stat-label">目前體重</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-value" id="stat-height">--</div>
-          <div class="stat-unit">cm</div>
-          <div class="stat-label">身高</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-value" id="stat-goal">--</div>
-          <div class="stat-unit">kg</div>
-          <div class="stat-label">目標體重</div>
-        </div>
       </div>
 
       <!-- Goal Progress -->
