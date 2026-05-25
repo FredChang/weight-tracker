@@ -16,11 +16,14 @@
   <link rel="stylesheet" href="style.css">
   <script>
     (function () {
+      var themes = ['light', 'dark', 'warm'];
+      var fallback = 'dark';
       try {
         var s = JSON.parse(localStorage.getItem('weight_tracker_settings') || '{}');
-        document.documentElement.setAttribute('data-theme', s.theme || 'light');
+        var t = themes.indexOf(s.theme) >= 0 ? s.theme : fallback;
+        document.documentElement.setAttribute('data-theme', t);
       } catch (e) {
-        document.documentElement.setAttribute('data-theme', 'light');
+        document.documentElement.setAttribute('data-theme', fallback);
       }
     })();
   </script>
@@ -251,8 +254,7 @@
     <div id="tab-settings" class="tab-content">
       <!-- Profile -->
       <div class="card">
-        <div class="profile-avatar">🏋️</div>
-        <div class="card-title" style="justify-content: center;">
+        <div class="card-title">
           個人設定
         </div>
         <div class="form-group">
@@ -293,15 +295,15 @@
           背景主題
         </div>
         <div class="theme-picker" id="theme-picker">
-          <button type="button" class="theme-option" data-theme="light" onclick="setTheme('light')">
+          <button type="button" class="theme-option" data-theme="light">
             <span class="theme-swatch theme-swatch-light"></span>
             <span class="theme-name">淺色</span>
           </button>
-          <button type="button" class="theme-option" data-theme="dark" onclick="setTheme('dark')">
+          <button type="button" class="theme-option" data-theme="dark">
             <span class="theme-swatch theme-swatch-dark"></span>
             <span class="theme-name">深色</span>
           </button>
-          <button type="button" class="theme-option" data-theme="warm" onclick="setTheme('warm')">
+          <button type="button" class="theme-option" data-theme="warm">
             <span class="theme-swatch theme-swatch-warm"></span>
             <span class="theme-name">暖色</span>
           </button>

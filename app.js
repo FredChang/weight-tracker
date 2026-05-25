@@ -11,7 +11,8 @@ const RECORDS_PER_PAGE = 20;
 
 // ── State ──
 let records = [];
-let settings = { name: '', gender: 0, birthday: '', height: 0, goalWeight: 0, theme: 'light' };
+const DEFAULT_THEME = 'dark';
+let settings = { name: '', gender: 0, birthday: '', height: 0, goalWeight: 0, theme: DEFAULT_THEME };
 const THEMES = ['light', 'dark', 'warm'];
 let currentPage = 1;
 let chartInstances = { mini: null, main: null, bmi: null };
@@ -28,8 +29,9 @@ document.addEventListener('DOMContentLoaded', () => {
   loadData();
   loadSettings();
   migrateLegacySettings();
-  applyTheme(settings.theme || 'light');
+  applyTheme(getEffectiveTheme());
   setDefaultDate();
+  setupThemePicker();
   setupWeightPicker();
   resetWeightPicker();
   updateDashboard();
@@ -75,11 +77,15 @@ function loadSettings() {
   if (bdayEl) bdayEl.value = settings.birthday || '';
   if (heightEl) heightEl.value = settings.height || '';
   if (goalEl) goalEl.value = settings.goalWeight || '';
-  updateThemePickerUI(settings.theme || 'light');
+  updateThemePickerUI(getEffectiveTheme());
+}
+
+function getEffectiveTheme() {
+  return THEMES.includes(settings.theme) ? settings.theme : DEFAULT_THEME;
 }
 
 function applyTheme(theme) {
-  const t = THEMES.includes(theme) ? theme : 'light';
+  const t = THEMES.includes(theme) ? theme : DEFAULT_THEME;
   settings.theme = t;
   document.documentElement.setAttribute('data-theme', t);
 
@@ -106,11 +112,31 @@ function setTheme(theme) {
   showToast('背景主題已切換', 'success');
 }
 
+function setupThemePicker() {
+  const picker = document.getElementById('theme-picker');
+  if (!picker) return;
+
+  picker.querySelectorAll('.theme-option').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const theme = btn.getAttribute('data-theme');
+      if (theme) setTheme(theme);
+    });
+  });
+
+  updateThemePickerUI(getEffectiveTheme());
+}
+
 function updateThemePickerUI(theme) {
   document.querySelectorAll('.theme-option').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.theme === theme);
+    btn.classList.toggle('active', btn.getAttribute('data-theme') === theme);
   });
 }
+
+// 供除錯或舊版 inline 呼叫
+window.setTheme = setTheme;
+window.applyTheme = applyTheme;
 
 function getChartColors() {
   const s = getComputedStyle(document.documentElement);
@@ -125,11 +151,13 @@ function getChartColors() {
 }
 
 function saveSettings() {
+  const prevTheme = getEffectiveTheme();
   settings.name = document.getElementById('setting-name').value;
   settings.gender = parseInt(document.getElementById('setting-gender').value) || 0;
   settings.birthday = document.getElementById('setting-birthday').value || '';
   settings.height = parseFloat(document.getElementById('setting-height').value) || 0;
   settings.goalWeight = parseFloat(document.getElementById('setting-goal').value) || 0;
+  settings.theme = prevTheme;
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
   updateDashboard();
   showToast('設定已儲存', 'success');
