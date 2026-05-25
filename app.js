@@ -53,9 +53,45 @@ function loadData() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     records = raw ? JSON.parse(raw) : [];
-    // Ensure IDs are consistent
-    records.forEach((r, i) => { if (!r.id) r.id = i + 1; });
+    if (!Array.isArray(records)) records = [];
+    records.forEach((r, i) => normalizeRecord(r, i));
   } catch { records = []; }
+}
+
+function normalizeRecord(r, index = 0) {
+  if (!r.id) r.id = index + 1;
+  r.id = Number(r.id);
+  r.weight = parseFloat(r.weight) || 0;
+  r.height = parseFloat(r.height) || 0;
+  r.desired_weight = parseFloat(r.desired_weight) || 0;
+  return r;
+}
+
+function parseRecordDate(dateStr) {
+  if (!dateStr) return new Date(0);
+  let d = new Date(dateStr);
+  if (!isNaN(d.getTime())) return d;
+  d = new Date(String(dateStr).replace(' ', 'T'));
+  if (!isNaN(d.getTime())) return d;
+  const m = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/);
+  if (m) {
+    return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0));
+  }
+  return new Date(0);
+}
+
+function getLatestRecord() {
+  if (!records.length) return null;
+  return [...records].sort((a, b) => parseRecordDate(b.created) - parseRecordDate(a.created))[0];
+}
+
+function findRecordById(id) {
+  return records.find(r => r.id == id);
+}
+
+function setElText(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = text;
 }
 
 function saveData() {
@@ -134,14 +170,6 @@ function updateThemePickerUI(theme) {
   });
 }
 
-// 供除錯或舊版 inline 呼叫
-window.setTheme = setTheme;
-window.applyTheme = applyTheme;
-window.openEditModal = openEditModal;
-window.closeEditModal = closeEditModal;
-window.updateRecord = updateRecord;
-window.deleteRecord = deleteRecord;
-
 function getChartColors() {
   const s = getComputedStyle(document.documentElement);
   return {
@@ -180,12 +208,12 @@ function migrateLegacySettings() {
     changed = true;
   }
   if (!settings.height && records.length > 0) {
-    const sorted = [...records].sort((a, b) => new Date(b.created) - new Date(a.created));
+    const sorted = [...records].sort((a, b) => parseRecordDate(b.created) - parseRecordDate(a.created));
     settings.height = sorted[0].height;
     changed = true;
   }
   if (!settings.goalWeight && records.length > 0) {
-    const sorted = [...records].sort((a, b) => new Date(b.created) - new Date(a.created));
+    const sorted = [...records].sort((a, b) => parseRecordDate(b.created) - parseRecordDate(a.created));
     if (sorted[0].desired_weight > 0) settings.goalWeight = sorted[0].desired_weight;
     changed = true;
   }
@@ -209,7 +237,7 @@ function migrateLegacySettings() {
 function getProfileHeight() {
   if (settings.height > 0) return settings.height;
   if (records.length > 0) {
-    const sorted = [...records].sort((a, b) => new Date(b.created) - new Date(a.created));
+    const sorted = [...records].sort((a, b) => parseRecordDate(b.created) - parseRecordDate(a.created));
     return sorted[0].height;
   }
   return 0;
@@ -254,7 +282,7 @@ function clampWeight(w) {
 
 function getBaseWeight() {
   if (records.length > 0) {
-    const sorted = [...records].sort((a, b) => new Date(b.created) - new Date(a.created));
+    const sorted = [...records].sort((a, b) => parseRecordDate(b.created) - parseRecordDate(a.created));
     return sorted[0].weight;
   }
   return WEIGHT_DEFAULT;
@@ -394,8 +422,9 @@ function saveRecord() {
     health: null
   };
 
+  normalizeRecord(record);
   records.push(record);
-  records.sort((a, b) => new Date(a.created) - new Date(b.created));
+  records.sort((a, b) => parseRecordDate(a.created) - parseRecordDate(b.created));
   saveData();
 
   showToast(`已儲存！BMI: ${calcBMI(height, weight).toFixed(1)}`, 'success');
@@ -416,16 +445,24 @@ function saveRecord() {
 // ══════════════════════════════════
 
 function updateDashboard() {
-  const sorted = [...records].sort((a, b) => new Date(b.created) - new Date(a.created));
-  const latest = sorted[0];
+  const latest = getLatestRecord();
+  const weightEl = document.getElementById('banner-weight') || document.getElementById('stat-weight');
+  const bmiEl = document.getElementById('bmi-value');
+  const statusEl = document.getElementById('bmi-status');
 
   if (!latest) {
-    document.getElementById('banner-weight').textContent = '--';
-    document.getElementById('banner-weight').style.color = '';
-    document.getElementById('bmi-value').textContent = '--';
-    document.getElementById('bmi-value').style.color = '';
-    document.getElementById('bmi-status').textContent = '請新增第一筆紀錄';
-    document.getElementById('bmi-status').className = 'bmi-status';
+    if (weightEl) {
+      weightEl.textContent = '--';
+      weightEl.style.color = '';
+    }
+    if (bmiEl) {
+      bmiEl.textContent = '--';
+      bmiEl.style.color = '';
+    }
+    if (statusEl) {
+      statusEl.textContent = records.length ? '資料異常，請編輯紀錄' : '請新增第一筆紀錄';
+      statusEl.className = 'bmi-status';
+    }
     document.getElementById('goal-card').style.display = 'none';
     renderMiniChart();
     return;
@@ -436,12 +473,18 @@ function updateDashboard() {
   const bmiInfo = getBMIStatus(bmi);
   const goalW = getTargetWeight();
 
-  document.getElementById('banner-weight').textContent = latest.weight.toFixed(1);
-  document.getElementById('banner-weight').style.color = 'var(--text-primary)';
-  document.getElementById('bmi-value').textContent = bmi.toFixed(1);
-  document.getElementById('bmi-value').style.color = bmiInfo.color;
-  document.getElementById('bmi-status').textContent = bmiInfo.label;
-  document.getElementById('bmi-status').className = `bmi-status ${bmiInfo.cls}`;
+  if (weightEl) {
+    weightEl.textContent = latest.weight.toFixed(1);
+    weightEl.style.color = 'var(--text-primary)';
+  }
+  if (bmiEl) {
+    bmiEl.textContent = bmi.toFixed(1);
+    bmiEl.style.color = bmiInfo.color;
+  }
+  if (statusEl) {
+    statusEl.textContent = bmiInfo.label;
+    statusEl.className = `bmi-status ${bmiInfo.cls}`;
+  }
 
   // Goal progress
   if (goalW > 0 && records.length >= 2) {
@@ -489,13 +532,13 @@ function getFilteredRecords() {
   let filtered = [...records];
 
   if (yearVal) {
-    filtered = filtered.filter(r => new Date(r.created).getFullYear() === parseInt(yearVal));
+    filtered = filtered.filter(r => parseRecordDate(r.created).getFullYear() === parseInt(yearVal));
   }
   if (monthVal) {
-    filtered = filtered.filter(r => (new Date(r.created).getMonth() + 1) === parseInt(monthVal));
+    filtered = filtered.filter(r => (parseRecordDate(r.created).getMonth() + 1) === parseInt(monthVal));
   }
 
-  return filtered.sort((a, b) => new Date(b.created) - new Date(a.created));
+  return filtered.sort((a, b) => parseRecordDate(b.created) - parseRecordDate(a.created));
 }
 
 function renderHistory() {
@@ -534,7 +577,7 @@ function renderHistory() {
     }
 
     html += `
-      <li class="record-item">
+      <li class="record-item" data-id="${rec.id}" title="雙擊可編輯">
         <div class="record-info">
           <span class="record-date">${dateStr}</span>
           <span class="record-weight">${rec.weight.toFixed(1)} kg</span>
@@ -585,8 +628,13 @@ function setupRecordListActions() {
   const list = document.getElementById('record-list');
   if (!list) return;
 
+  list.querySelectorAll('.record-item').forEach(item => {
+    item.ondblclick = () => openEditModal(Number(item.dataset.id));
+  });
+
   list.querySelectorAll('.record-edit').forEach(btn => {
     btn.onclick = (e) => {
+      e.preventDefault();
       e.stopPropagation();
       openEditModal(Number(btn.dataset.id));
     };
@@ -594,6 +642,7 @@ function setupRecordListActions() {
 
   list.querySelectorAll('.record-delete').forEach(btn => {
     btn.onclick = (e) => {
+      e.preventDefault();
       e.stopPropagation();
       deleteRecord(Number(btn.dataset.id), e);
     };
@@ -616,24 +665,36 @@ function deleteRecord(id, event) {
 // ══════════════════════════════════
 
 function setupEditModal() {
-  document.getElementById('edit-cancel')?.addEventListener('click', closeEditModal);
-  document.getElementById('edit-save')?.addEventListener('click', updateRecord);
-  document.getElementById('edit-modal')?.addEventListener('click', (e) => {
-    if (e.target.id === 'edit-modal') closeEditModal();
+  if (setupEditModal._bound) return;
+  setupEditModal._bound = true;
+
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('#edit-cancel')) {
+      e.preventDefault();
+      closeEditModal();
+      return;
+    }
+    if (e.target.closest('#edit-save')) {
+      e.preventDefault();
+      updateRecord();
+      return;
+    }
+    if (e.target.id === 'edit-modal') {
+      closeEditModal();
+    }
   });
 }
 
 function openEditModal(id) {
-  const rec = records.find(r => r.id === id);
+  const rec = findRecordById(id);
   if (!rec) return;
 
-  document.getElementById('edit-id').value = id;
+  document.getElementById('edit-id').value = rec.id;
   document.getElementById('edit-weight').value = rec.weight;
   document.getElementById('edit-height').value = rec.height;
   document.getElementById('edit-desc').value = rec.description || '';
 
-  // Format datetime for input
-  const dt = new Date(rec.created);
+  const dt = parseRecordDate(rec.created);
   document.getElementById('edit-date').value = toLocalISOString(dt);
 
   document.getElementById('edit-modal').classList.add('active');
@@ -644,8 +705,8 @@ function closeEditModal() {
 }
 
 function updateRecord() {
-  const id = parseInt(document.getElementById('edit-id').value);
-  const rec = records.find(r => r.id === id);
+  const id = document.getElementById('edit-id').value;
+  const rec = findRecordById(id);
   if (!rec) return;
 
   rec.weight = parseFloat(document.getElementById('edit-weight').value) || rec.weight;
@@ -659,7 +720,7 @@ function updateRecord() {
   }
   rec.last_modified = formatDateToStr(new Date());
 
-  records.sort((a, b) => new Date(a.created) - new Date(b.created));
+  records.sort((a, b) => parseRecordDate(a.created) - parseRecordDate(b.created));
   saveData();
   closeEditModal();
   renderHistory();
@@ -678,7 +739,7 @@ function renderMiniChart() {
   if (chartInstances.mini) chartInstances.mini.destroy();
 
   // Last 30 records
-  const sorted = [...records].sort((a, b) => new Date(a.created) - new Date(b.created));
+  const sorted = [...records].sort((a, b) => parseRecordDate(a.created) - parseRecordDate(b.created));
   const recent = sorted.slice(-30);
 
   if (recent.length < 2) {
@@ -694,7 +755,7 @@ function renderMiniChart() {
     return;
   }
 
-  const labels = recent.map(r => new Date(r.created));
+  const labels = recent.map(r => parseRecordDate(r.created));
   const weights = recent.map(r => r.weight);
   const goalWeight = getTargetWeight();
   const c = getChartColors();
@@ -738,7 +799,7 @@ function renderMainChart() {
 
   if (chartInstances.main) chartInstances.main.destroy();
 
-  const sorted = [...records].sort((a, b) => new Date(a.created) - new Date(b.created));
+  const sorted = [...records].sort((a, b) => parseRecordDate(a.created) - parseRecordDate(b.created));
   const filtered = filterByRange(sorted, currentChartRange);
 
   if (filtered.length < 2) {
@@ -750,7 +811,7 @@ function renderMainChart() {
     return;
   }
 
-  const labels = filtered.map(r => new Date(r.created));
+  const labels = filtered.map(r => parseRecordDate(r.created));
   const weights = filtered.map(r => r.weight);
   const goalWeight = getTargetWeight();
   const c = getChartColors();
@@ -796,7 +857,7 @@ function renderBmiChart() {
 
   if (chartInstances.bmi) chartInstances.bmi.destroy();
 
-  const sorted = [...records].sort((a, b) => new Date(a.created) - new Date(b.created));
+  const sorted = [...records].sort((a, b) => parseRecordDate(a.created) - parseRecordDate(b.created));
   const filtered = filterByRange(sorted, currentChartRange);
 
   if (filtered.length < 2) {
@@ -808,7 +869,7 @@ function renderBmiChart() {
     return;
   }
 
-  const labels = filtered.map(r => new Date(r.created));
+  const labels = filtered.map(r => parseRecordDate(r.created));
   const bmis = filtered.map(r => calcBMI(r.height, r.weight));
   const c = getChartColors();
   const secondarySoft = getComputedStyle(document.documentElement).getPropertyValue('--accent-secondary-soft').trim();
@@ -869,7 +930,7 @@ function filterByRange(data, range) {
     const m = months[range] || 12;
     cutoff = new Date(now.getFullYear(), now.getMonth() - m, now.getDate());
   }
-  return data.filter(r => new Date(r.created) >= cutoff);
+  return data.filter(r => parseRecordDate(r.created) >= cutoff);
 }
 
 function createGradient(ctx, colorTop, colorBottom) {
@@ -1067,7 +1128,7 @@ function importJSON(event) {
         // Skip duplicates by created date
         if (existingDates.has(rec.created)) return;
 
-        records.push({
+        const row = {
           id: nextId++,
           uid: rec.uid || 1,
           height_ft: rec.height_ft || 0,
@@ -1087,11 +1148,13 @@ function importJSON(event) {
           hip: parseFloat(rec.hip) || 0,
           purchased: rec.purchased || 0,
           health: rec.health || null
-        });
+        };
+        normalizeRecord(row);
+        records.push(row);
         added++;
       });
 
-      records.sort((a, b) => new Date(a.created) - new Date(b.created));
+      records.sort((a, b) => parseRecordDate(a.created) - parseRecordDate(b.created));
       saveData();
       updateDashboard();
       renderHistory();
@@ -1128,7 +1191,7 @@ function exportCSV() {
   }
 
   const headers = ['日期', '身高(cm)', '體重(kg)', 'BMI', '目標體重(kg)', '體脂率(%)', '肌肉量(%)', '含水量(%)', '腰圍(cm)', '腹圍(cm)', '胸圍(cm)', '臀圍(cm)', '備註'];
-  const sorted = [...records].sort((a, b) => new Date(a.created) - new Date(b.created));
+  const sorted = [...records].sort((a, b) => parseRecordDate(a.created) - parseRecordDate(b.created));
 
   const rows = sorted.map(r => [
     r.created,
@@ -1193,7 +1256,7 @@ function updateDataStats() {
 
 function populateYearFilter() {
   const select = document.getElementById('filter-year');
-  const years = new Set(records.map(r => new Date(r.created).getFullYear()));
+  const years = new Set(records.map(r => parseRecordDate(r.created).getFullYear()).filter(y => !isNaN(y)));
   const sortedYears = [...years].sort((a, b) => b - a);
 
   const currentVal = select.value;
@@ -1219,7 +1282,7 @@ function formatDateToStr(date) {
 }
 
 function formatDisplayDate(dateStr) {
-  const d = new Date(dateStr);
+  const d = parseRecordDate(dateStr);
   return d.toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' })
     + ' ' + d.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
 }
@@ -1268,3 +1331,23 @@ function showToast(msg, type = 'success') {
     toast.classList.remove('show');
   }, 2500);
 }
+
+// 全域函式（供 HTML onclick 與舊版快取相容）
+window.setTheme = setTheme;
+window.applyTheme = applyTheme;
+window.switchTab = switchTab;
+window.saveRecord = saveRecord;
+window.openEditModal = openEditModal;
+window.closeEditModal = closeEditModal;
+window.updateRecord = updateRecord;
+window.deleteRecord = deleteRecord;
+window.filterRecords = filterRecords;
+window.goPage = goPage;
+window.setChartRange = setChartRange;
+window.exportJSON = exportJSON;
+window.exportCSV = exportCSV;
+window.importJSON = importJSON;
+window.confirmClearData = confirmClearData;
+window.closeClearModal = closeClearModal;
+window.clearAllData = clearAllData;
+window.saveSettings = saveSettings;

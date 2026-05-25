@@ -841,7 +841,7 @@ body::before {
   display: none;
   align-items: center;
   justify-content: center;
-  z-index: 100;
+  z-index: 200;
   padding: 20px;
 }
 
@@ -863,6 +863,9 @@ body::before {
   width: 100%;
   max-width: 380px;
   animation: modalSlide 0.3s ease;
+  position: relative;
+  z-index: 201;
+  pointer-events: auto;
 }
 
 @keyframes modalSlide {
