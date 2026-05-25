@@ -674,19 +674,34 @@ body::before {
   background: rgba(100, 116, 139, 0.1);
 }
 
-.record-delete {
+.record-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.record-action {
   background: none;
   border: none;
   color: var(--text-muted);
   cursor: pointer;
-  padding: 4px;
+  padding: 6px;
   border-radius: var(--radius-sm);
   transition: all var(--transition-fast);
-  opacity: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.record-item:hover .record-delete {
+.record-item:hover .record-action,
+.record-action:focus-visible {
   opacity: 1;
+}
+
+.record-edit:hover {
+  color: var(--accent-primary);
+  background: var(--accent-primary-soft);
 }
 
 .record-delete:hover {

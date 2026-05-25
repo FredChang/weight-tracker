@@ -11,7 +11,7 @@ const RECORDS_PER_PAGE = 20;
 
 // ── State ──
 let records = [];
-const DEFAULT_THEME = 'dark';
+const DEFAULT_THEME = 'warm';
 let settings = { name: '', gender: 0, birthday: '', height: 0, goalWeight: 0, theme: DEFAULT_THEME };
 const THEMES = ['light', 'dark', 'warm'];
 let currentPage = 1;
@@ -30,8 +30,8 @@ document.addEventListener('DOMContentLoaded', () => {
   loadSettings();
   migrateLegacySettings();
   applyTheme(getEffectiveTheme());
-  setDefaultDate();
   setupThemePicker();
+  setupEditModal();
   setupWeightPicker();
   resetWeightPicker();
   updateDashboard();
@@ -137,6 +137,10 @@ function updateThemePickerUI(theme) {
 // 供除錯或舊版 inline 呼叫
 window.setTheme = setTheme;
 window.applyTheme = applyTheme;
+window.openEditModal = openEditModal;
+window.closeEditModal = closeEditModal;
+window.updateRecord = updateRecord;
+window.deleteRecord = deleteRecord;
 
 function getChartColors() {
   const s = getComputedStyle(document.documentElement);
@@ -183,6 +187,17 @@ function migrateLegacySettings() {
   if (!settings.goalWeight && records.length > 0) {
     const sorted = [...records].sort((a, b) => new Date(b.created) - new Date(a.created));
     if (sorted[0].desired_weight > 0) settings.goalWeight = sorted[0].desired_weight;
+    changed = true;
+  }
+  const warmMigrationKey = 'weight_tracker_warm_default';
+  if (!localStorage.getItem(warmMigrationKey)) {
+    if (!settings.theme || settings.theme === 'dark') {
+      settings.theme = DEFAULT_THEME;
+      changed = true;
+    }
+    localStorage.setItem(warmMigrationKey, '1');
+  } else if (!THEMES.includes(settings.theme)) {
+    settings.theme = DEFAULT_THEME;
     changed = true;
   }
   if (changed) {
@@ -336,7 +351,6 @@ function saveRecord() {
   const height = getProfileHeight();
   const weight = pickerWeight;
   const goal = getTargetWeight();
-  const dateStr = document.getElementById('input-date').value;
 
   if (!height) {
     showToast('請先在設定中填寫身高', 'error');
@@ -355,7 +369,7 @@ function saveRecord() {
     return;
   }
 
-  const created = dateStr ? new Date(dateStr) : new Date();
+  const created = new Date();
   const nextId = records.length > 0 ? Math.max(...records.map(r => r.id)) + 1 : 1;
 
   const record = {
@@ -390,7 +404,6 @@ function saveRecord() {
   ['fat', 'muscle', 'water', 'waist', 'belly', 'chest', 'hip'].forEach(f => {
     document.getElementById(`input-${f}`).value = '';
   });
-  setDefaultDate();
   resetWeightPicker();
 
   updateDashboard();
@@ -521,7 +534,7 @@ function renderHistory() {
     }
 
     html += `
-      <li class="record-item" ondblclick="openEditModal(${rec.id})" title="雙擊編輯">
+      <li class="record-item">
         <div class="record-info">
           <span class="record-date">${dateStr}</span>
           <span class="record-weight">${rec.weight.toFixed(1)} kg</span>
@@ -529,14 +542,20 @@ function renderHistory() {
         </div>
         <div class="record-meta">
           ${changeHtml}
-          <button class="record-delete" onclick="deleteRecord(${rec.id}, event)" title="刪除">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
-          </button>
+          <div class="record-actions">
+            <button type="button" class="record-action record-edit" data-id="${rec.id}" title="編輯">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+            <button type="button" class="record-action record-delete" data-id="${rec.id}" title="刪除">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+            </button>
+          </div>
         </div>
       </li>`;
   });
 
   list.innerHTML = html;
+  setupRecordListActions();
 
   // Pagination
   if (totalPages > 1) {
@@ -562,8 +581,27 @@ function goPage(page) {
   document.getElementById('tab-history').scrollIntoView({ behavior: 'smooth' });
 }
 
+function setupRecordListActions() {
+  const list = document.getElementById('record-list');
+  if (!list) return;
+
+  list.querySelectorAll('.record-edit').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      openEditModal(Number(btn.dataset.id));
+    };
+  });
+
+  list.querySelectorAll('.record-delete').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      deleteRecord(Number(btn.dataset.id), e);
+    };
+  });
+}
+
 function deleteRecord(id, event) {
-  event.stopPropagation();
+  if (event) event.stopPropagation();
   if (!confirm('確定要刪除這筆紀錄嗎？')) return;
   records = records.filter(r => r.id !== id);
   saveData();
@@ -576,6 +614,14 @@ function deleteRecord(id, event) {
 // ══════════════════════════════════
 //  EDIT RECORD
 // ══════════════════════════════════
+
+function setupEditModal() {
+  document.getElementById('edit-cancel')?.addEventListener('click', closeEditModal);
+  document.getElementById('edit-save')?.addEventListener('click', updateRecord);
+  document.getElementById('edit-modal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'edit-modal') closeEditModal();
+  });
+}
 
 function openEditModal(id) {
   const rec = records.find(r => r.id === id);
@@ -1161,11 +1207,6 @@ function populateYearFilter() {
 // ══════════════════════════════════
 //  UTILITIES
 // ══════════════════════════════════
-
-function setDefaultDate() {
-  const now = new Date();
-  document.getElementById('input-date').value = toLocalISOString(now);
-}
 
 function toLocalISOString(date) {
   const pad = n => n.toString().padStart(2, '0');

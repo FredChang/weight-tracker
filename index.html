@@ -17,7 +17,7 @@
   <script>
     (function () {
       var themes = ['light', 'dark', 'warm'];
-      var fallback = 'dark';
+      var fallback = 'warm';
       try {
         var s = JSON.parse(localStorage.getItem('weight_tracker_settings') || '{}');
         var t = themes.indexOf(s.theme) >= 0 ? s.theme : fallback;
@@ -101,11 +101,6 @@
           <div class="weight-picker-value" id="weight-display">60.0</div>
           <div class="weight-picker-unit">kg</div>
           <div class="weight-picker-delta" id="weight-delta"></div>
-        </div>
-
-        <div class="form-group" style="margin-bottom: 12px;">
-          <label class="form-label" for="input-date">日期</label>
-          <input type="datetime-local" id="input-date" class="form-input">
         </div>
 
         <details class="add-advanced">
@@ -410,8 +405,8 @@
       </div>
       <input type="hidden" id="edit-id">
       <div class="btn-group">
-        <button class="btn btn-secondary" onclick="closeEditModal()">取消</button>
-        <button class="btn btn-primary" onclick="updateRecord()">儲存</button>
+        <button type="button" class="btn btn-secondary" id="edit-cancel">取消</button>
+        <button type="button" class="btn btn-primary" id="edit-save">儲存</button>
       </div>
     </div>
   </div>
